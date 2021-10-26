@@ -2,7 +2,6 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using ChessRules;
 
 namespace Server
@@ -21,6 +20,7 @@ namespace Server
         static string GetValidMoves(Chess chess)
         {
             StringBuilder sb = new StringBuilder();
+            sb.AppendLine("Enter EXIT to exit");
             foreach (string moves in chess.YieldValidMoves())
             {
                 sb.AppendLine(moves);
@@ -49,22 +49,12 @@ namespace Server
                 sb.AppendLine("IS STALEMATE");
             return sb.ToString();
         }
-        static byte[] MessageToByte(string message)
+        static void SendMessage(Player[] players, string message)
         {
-            return Encoding.UTF8.GetBytes(message);
-        }
-        static void SendMessage(NetworkStream player, string message)
-        {
-            byte[] data = MessageToByte(message);
-            player.Write(data, 0, data.Length);
-        }
-
-        static void SendMessage(NetworkStream[] players, string message)
-        {
-            byte[] data = MessageToByte(message);
-            foreach (var player in players)
+            foreach (var p in players)
             {
-                player.Write(data, 0, data.Length);
+                p.SendMessage(message);
+
             }
         }
         static void Main(string[] args)
@@ -72,58 +62,56 @@ namespace Server
             TcpListener server = null;
             try
             {
-                // IPAddres and port for incoming connections
-                //IPAddress localAddr = IPAddress.Parse(args[0]);"
-                //Int32 port = Int32.Parse(args[1]);
-                IPAddress localAddr = IPAddress.Parse("127.0.0.1");
-                server = new TcpListener(localAddr, 8888);
+                IPAddress localAddr = IPAddress.Parse(args[0]);
+                Int32 port = Int32.Parse(args[1]);
+
+                server = new TcpListener(localAddr, port);
                 server.Start();
-
-                TcpClient[] players = new TcpClient[2];
-                NetworkStream[] playersStream = new NetworkStream[2];
+                Console.WriteLine("Server started");
                 Chess chess = new Chess();
+                Player[] players = new Player[2];
 
 
-
-                players[0] = server.AcceptTcpClient();
+                players[0] = new Player(server.AcceptTcpClient());
+                players[0].SendMessage("Wait second player");
                 Console.WriteLine("Player1 connect to server");
-                playersStream[0] = players[0].GetStream();
 
-                SendMessage(playersStream[0], "Expect a second player");
-
-                players[1] = server.AcceptTcpClient();
+                players[1] = new Player(server.AcceptTcpClient());
                 Console.WriteLine("Player 2 connect to server");
-                playersStream[1] = players[1].GetStream();
-                SendMessage(playersStream, "Game ready");
-
+                SendMessage(players, "Game ready");
                 int i = 0;
-                byte[] data = new byte[256];
-                StringBuilder response = new StringBuilder();
-                while (true)
+                bool isContinue = true;
+                while (!(chess.IsCheckmate && chess.IsStalemate)&& isContinue)
                 {
                     string board = ChessToAscii(chess);
                     string movesToSend = GetValidMoves(chess);
 
-                    SendMessage(playersStream, board);
-                    SendMessage(playersStream[i % 2], movesToSend);
-                    Thread.Sleep(4000);
+                    SendMessage(players, board);
+                    players[i].SendMessage(movesToSend);
                     string move;
                     do
                     {
-                        SendMessage(playersStream[i % 2], "Your move");
-                        SendMessage(playersStream[i % 2], "");
-                        playersStream[i % 2].Read(data, 0, data.Length);
-                        move = Encoding.UTF8.GetString(data, 0, data.Length);
+                        players[i].SendMessage("Your move");
+                        move = players[i].GetMessage();
                         Console.WriteLine(move);
-                    } while (!chess.IsValidMove(move));
+                        if (move == "EXIT")
+                        {
+                            SendMessage(players, "Player disconnect game");
+                            SendMessage(players, "EXIT");
+                            Console.WriteLine("Fagot leave is a game");
+                            isContinue = false;
+                        }
+                    } while (!chess.IsValidMove(move) && isContinue);
+                    if (isContinue)
+                    {
 
-                    if (move == "") break;
-                    chess = chess.Move(move);
-
-                    i++;
-
+                        chess = chess.Move(move);
+                        i = i == 0 ? 1 : 0;
+                    }
                 }
 
+                players[0].Close();
+                players[1].Close();
 
             }
             catch (SocketException e)
@@ -132,7 +120,6 @@ namespace Server
             }
             finally
             {
-                // Stop listening for new clients.
                 server.Stop();
             }
 

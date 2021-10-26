@@ -1,40 +1,50 @@
 ﻿using System;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Linq;
-using System.Collections.Generic;
 namespace Client
 {
     class Program
     {
-        static void Main()
+        static void Main(string[] args)
         {
             try
             {
+                IPAddress localAddr = IPAddress.Parse(args[0]);
+                Int32 port = Int32.Parse(args[1]);
                 // Server connection
                 TcpClient tcpClient = new TcpClient();
                 // IP             Port
-                tcpClient.Connect("127.0.0.1", 8888);
+                tcpClient.Connect(localAddr, port);
                 byte[] data = new byte[256];
                 //StringBuilder response = new StringBuilder();
                 NetworkStream netStream = tcpClient.GetStream();
+                StreamReader reader = new StreamReader(netStream);
+                StreamWriter writer = new StreamWriter(netStream);
+                string info;
                 do
                 {
                     //Console.WriteLine(response.ToString());
-                    int nuberOfBytes = 2;
                     do
                     {
-                        nuberOfBytes = netStream.Read(data, 0, data.Length); 
-                        Console.WriteLine( Encoding.UTF8.GetString(data, 0, data.Length)); 
-                        Console.WriteLine(nuberOfBytes);
-                    }while(nuberOfBytes != 9);
-
-                    Console.WriteLine("Enter move: ");
-                    string move = Console.ReadLine();
-                    byte[] bytes = Encoding.UTF8.GetBytes(move);
-                    netStream.Write(bytes, 0, bytes.Length);
-                    StreamWriter writer = new StreamWriter(move);
+                        info = reader.ReadLine();
+                        if (info == "EXIT")
+                        {
+                            netStream = null;
+                        }
+                        Console.WriteLine(info);
+                    } while (info != "Your move");
+                    if (netStream != null)
+                    {
+                        Console.WriteLine("Enter move: ");
+                        string move = Console.ReadLine();
+                        writer.WriteLine(move);
+                        writer.Flush();
+                    }
+                    else
+                    {
+                        break;
+                    }
                 } while (true);
 
             }
