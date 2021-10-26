@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using ChessRules;
 
 namespace Server
@@ -17,14 +18,14 @@ namespace Server
                 count += NextMoves(step - 1, chess.Move(moves));
             return count;
         }
-        static string MovesToSend(Chess chess)
+        static string GetValidMoves(Chess chess)
         {
             StringBuilder sb = new StringBuilder();
             foreach (string moves in chess.YieldValidMoves())
             {
                 sb.AppendLine(moves);
-                sb.ToString();
             }
+            return sb.ToString();
         }
         static string ChessToAscii(Chess chess)
         {
@@ -72,10 +73,10 @@ namespace Server
             try
             {
                 // IPAddres and port for incoming connections
-                IPAddress localAddr = IPAddress.Parse(args[0]);
-                Int32 port = Int32.Parse(args[1]);
-
-                server = new TcpListener(localAddr, port);
+                //IPAddress localAddr = IPAddress.Parse(args[0]);"
+                //Int32 port = Int32.Parse(args[1]);
+                IPAddress localAddr = IPAddress.Parse("127.0.0.1");
+                server = new TcpListener(localAddr, 8888);
                 server.Start();
 
                 TcpClient[] players = new TcpClient[2];
@@ -95,14 +96,31 @@ namespace Server
                 playersStream[1] = players[1].GetStream();
                 SendMessage(playersStream, "Game ready");
 
+                int i = 0;
+                byte[] data = new byte[256];
+                StringBuilder response = new StringBuilder();
                 while (true)
                 {
-                    //Console.WriteLine(chess.fen);
-                    //Console.WriteLine(ChessToAscii(chess));
-                    string movesToSend = "";
-                    string move = Console.ReadLine();
+                    string board = ChessToAscii(chess);
+                    string movesToSend = GetValidMoves(chess);
+
+                    SendMessage(playersStream, board);
+                    SendMessage(playersStream[i % 2], movesToSend);
+                    Thread.Sleep(4000);
+                    string move;
+                    do
+                    {
+                        SendMessage(playersStream[i % 2], "Your move");
+                        SendMessage(playersStream[i % 2], "");
+                        playersStream[i % 2].Read(data, 0, data.Length);
+                        move = Encoding.UTF8.GetString(data, 0, data.Length);
+                        Console.WriteLine(move);
+                    } while (!chess.IsValidMove(move));
+
                     if (move == "") break;
                     chess = chess.Move(move);
+
+                    i++;
 
                 }
 
