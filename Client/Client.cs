@@ -28,23 +28,13 @@ namespace Client
                     do
                     {
                         info = reader.ReadLine();
-                        if (info == "EXIT")
-                        {
-                            netStream = null;
-                        }
                         Console.WriteLine(info);
                     } while (info != "Your move");
-                    if (netStream != null)
-                    {
+
                         Console.WriteLine("Enter move: ");
                         string move = Console.ReadLine();
                         writer.WriteLine(move);
                         writer.Flush();
-                    }
-                    else
-                    {
-                        break;
-                    }
                 } while (true);
 
             }

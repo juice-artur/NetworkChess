@@ -20,7 +20,6 @@ namespace Server
         static string GetValidMoves(Chess chess)
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Enter EXIT to exit");
             foreach (string moves in chess.YieldValidMoves())
             {
                 sb.AppendLine(moves);
@@ -80,8 +79,7 @@ namespace Server
                 Console.WriteLine("Player 2 connect to server");
                 SendMessage(players, "Game ready");
                 int i = 0;
-                bool isContinue = true;
-                while (!(chess.IsCheckmate && chess.IsStalemate)&& isContinue)
+                while (!(chess.IsCheckmate && chess.IsStalemate))
                 {
                     string board = ChessToAscii(chess);
                     string movesToSend = GetValidMoves(chess);
@@ -94,24 +92,13 @@ namespace Server
                         players[i].SendMessage("Your move");
                         move = players[i].GetMessage();
                         Console.WriteLine(move);
-                        if (move == "EXIT")
-                        {
-                            SendMessage(players, "Player disconnect game");
-                            SendMessage(players, "EXIT");
-                            Console.WriteLine("Fagot leave is a game");
-                            isContinue = false;
-                        }
-                    } while (!chess.IsValidMove(move) && isContinue);
-                    if (isContinue)
-                    {
 
-                        chess = chess.Move(move);
-                        i = i == 0 ? 1 : 0;
-                    }
+                    } while (!chess.IsValidMove(move));
+
+                    chess = chess.Move(move);
+                    i = i == 0 ? 1 : 0;
+
                 }
-
-                players[0].Close();
-                players[1].Close();
 
             }
             catch (SocketException e)
